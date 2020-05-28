@@ -1,0 +1,8 @@
+prefix=/home/eliseo/autonomous_turtlebot/install
+
+Name: autonomous_turtlebot
+Description: Description of autonomous_turtlebot
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
