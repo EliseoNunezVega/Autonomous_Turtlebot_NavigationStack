@@ -5,12 +5,12 @@ from std_msgs.msg import Float32MultiArray
 
 def transmit_desired_pose():
 	rospy.init_node('ref_publisher')
-	pub = rospy.Publisher('reference_point', Float32MultiArray, queue_size = 10)
+	pub = rospy.Publisher('target_pose', Float32MultiArray, queue_size = 10)
 	rate = rospy.Rate(10)
 	desired_pose = Float32MultiArray()
 
-	x = 0.4
-	y = 0.4
+	x = 0.9
+	y = 0.9
 	theta = 0.0 
 	mode = 1
 	
