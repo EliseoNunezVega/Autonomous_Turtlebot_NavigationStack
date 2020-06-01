@@ -9,8 +9,8 @@ def transmit_desired_pose():
 	rate = rospy.Rate(10)
 	desired_pose = Float32MultiArray()
 
-	x = 0.9
-	y = 0.9
+	x = 1.4
+	y = 0.4
 	theta = 0.0 
 	mode = 1
 	
