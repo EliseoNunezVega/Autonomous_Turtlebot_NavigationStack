@@ -5,7 +5,7 @@ import random
 from math import sqrt, ceil 
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
 class RRT():
 	def __init__(self):
@@ -16,6 +16,8 @@ class RRT():
 		rospy.Subscriber('target_pose', Float32MultiArray, self.handleTargetPose)
 		self.map_width = None
 		self.map_height = None
+		self.obstacle_indices = None
+		self.obstacle_points = []
 		self.map_resolution = None
 		self.previous_indices = []
 		self.random_range = 2.5
@@ -28,6 +30,9 @@ class RRT():
 		self.found_path = False
 		self.path_tree = []
 		self.final_path = []
+		self.trajectory = Float32MultiArray()
+		self.rate = rospy.Rate(10)
+
 		
 
 
@@ -55,12 +60,19 @@ class RRT():
 		
 		
 
-		# extracting only relevant map features
+		# extracting only relevant unblocked points
 		if self.free_spaces_indices == None:
 			grid = self.occupancy_grid
 			self.free_spaces_indices = [indx for (indx,x) in enumerate(grid) if x == 0]
 	
-
+		# extrcating obstacle points for later use
+		if self.obstacle_indices == None:
+			grid = self.occupancy_grid
+			self.obstacle_indices = [indx for (indx,x) in enumerate(grid) if x == 100]
+			for i in self.obstacle_indices:
+				point = self.convertIndexToXY(i)
+				self.obstacle_points.append(point)
+			
 			
 		#rospy.loginfo(isolated_map)
 		#rospy.loginfo(len(isolated_map))
@@ -77,6 +89,15 @@ class RRT():
 		if self.destination_point == None:
 			self.destination_point = (target_pose.data[0], target_pose.data[1])
 	
+	def point_hits_obstacle(self, point):
+		
+		for obstacle in self.obstacle_points:
+			distance = self.get_euclidian_distance(point, obstacle)
+			if distance < 0.5:
+				return True
+	
+		return False
+
 
 	def random_configuration(self):
 		random_index = random.choice(self.free_spaces_indices)
@@ -122,9 +143,10 @@ class RRT():
 		distance = float('inf')
 		nearest_point = self.path_tree[nearest_neighbor][1]
 		temp_free_spaces = self.free_spaces_indices
+		new_random_point = random_point
 
 
-		while distance > self.dist_threshold:
+		while distance > self.dist_threshold or self.point_hits_obstacle(random_point):
 			random_index = random.choice(temp_free_spaces)
 			temp_free_spaces.remove(random_index)
 			new_random_point = self.convertIndexToXY(random_index)
@@ -132,65 +154,6 @@ class RRT():
 			
 		return new_random_point
 		
-
-		'''
-		nearest_point = self.path_tree[nearest_neighbor][1]
-
-		rospy.loginfo('nearest_point %s', nearest_point)
-
-		index = self.convertXYtoIndex(nearest_point[0], nearest_point[1])
-
-		rospy.loginfo('other index %s', index)
-		
-		np_index = self.free_spaces_indices.index(index)
-
-
-		distance = float('inf')
-		
-		if np_index >= 100 and np_index <= len(self.free_spaces_indices) - 100:
-
-			nearest_points = self.free_spaces_indices[np_index-100:np_index+100]
-		
-		if np_index < 100:
-			
-			nearest_points = self.free_spaces_indices[np_index: np_index+ 100]
-
-		if np_index > np_index < len(self.free_spaces_indices)-100:
-
-			nearest_points = self.free_spaces_indices[np_index:np_index-100]
-		
-		
-		
-
-		while distance > self.dist_threshold:
-			
-			new_random_point = self.convertIndexToXY(random.choice(nearest_points))
-			
-			distance = self.get_euclidian_distance(nearest_point, new_random_point)
-
-		
-		return (new_random_point[0], new_random_point[1])
-	
-		'''
-
-
-		'''
-		neighbor_point= self.path_tree[nearest_neighbor][1]
-
-		dx =  random_point[0] - neighbor_point[0]
-		dy = random_point[1] - neighbor_point[1]
-
-		if dx != 0 and dy != 0:
-			rospy.loginfo('getting new point sloped')
-			return self.correct_sloped_points(neighbor_point, random_point, dy, dx)
-		if dx == 0:
-			rospy.loginfo('gettng new point same x')
-			return self.correct_same_x(neighbor_point, random_point)
-
-		if dy == 0:
-			rospy.loginfo('getting new point same y')
-			return self.correct_same_y(neighbor_point, random_point)
-		'''
 
 	def correct_same_y(self, neighbor_point, random_point):
 		distance = float('inf')
@@ -288,6 +251,7 @@ class RRT():
 		
 		return final_path
 
+
 	def doRRT(self):
 
 		
@@ -361,7 +325,34 @@ class RRT():
 		#rospy.loginfo('path tree %s', self.path_tree)		
 		self.final_path = self.retrace_path()
 		self.final_path.reverse()
-		rospy.loginfo(self.final_path)
+		#rospy.loginfo(self.final_path)
+		
+		# formatting trajectory MultiArray
+		self.trajectory.layout.dim = [MultiArrayDimension(), MultiArrayDimension()]
+	
+		self.trajectory.layout.dim[0].label = "point"
+		self.trajectory.layout.dim[0].size = len(self.final_path)
+		self.trajectory.layout.dim[0].stride = 2
+
+		self.trajectory.layout.dim[1].label = "xyvalue"
+		self.trajectory.layout.dim[1].size = 2
+		self.trajectory.layout.dim[1].stride = 1
+
+		# flattening our data 
+		flattened_path = []
+		for point in self.final_path:
+			flattened_path.append(point[0])
+			flattened_path.append(point[1])	
+
+		# attaching our data to the trajectory msg
+		self.trajectory.data = flattened_path
+
+		rospy.loginfo('trajectory data %s', self.trajectory.data)	
+
+		while not rospy.is_shutdown():
+			self.pub.publish(self.trajectory)
+			self.rate.sleep()			
+			
 
 
 if __name__ == '__main__':

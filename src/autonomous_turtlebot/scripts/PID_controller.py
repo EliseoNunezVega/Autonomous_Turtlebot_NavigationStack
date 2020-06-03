@@ -3,7 +3,7 @@
 import rospy
 import tf
 from math import atan2, sqrt, degrees
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
 
@@ -12,7 +12,7 @@ class PIDController():
 		#initializing node, subscribers, and publishers
 		rospy.init_node('PID_Controller')
 		self.pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-		rospy.Subscriber('reference_point', Float32MultiArray, self.get_goal_pose)
+		rospy.Subscriber('reference_point', Float32, self.get_goal_pose)
  		rospy.Subscriber('slam_out_pose', PoseStamped, self.get_curr_pose)
 		# initializing PID parameters
 		self.kp_v = .0004
@@ -123,6 +123,8 @@ class PIDController():
 		# we wait until we have curr_pose and goal_pose before beginning
 		while self.goal_pose == None or self.curr_pose == None:
 			pass
+		rospy.loginfo('got goal point')
+
 		if self.goal_pose[3]== 1:
 			self.method1()
 		elif self.goal_pose[3] == 2:
