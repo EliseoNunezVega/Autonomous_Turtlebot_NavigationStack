@@ -1,0 +1,9 @@
+<launch>
+	
+	
+	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_stage_4.launch"/>
+	<include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch"/>
+	<include file="$(find map_provider)/launch/map_provider.launch"/>
+	
+	<node pkg="autonomous_turtlebot" type="test_position.py" name="test_position"/>
+</launch>

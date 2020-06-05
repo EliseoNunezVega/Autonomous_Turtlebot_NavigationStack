@@ -1,2 +1,2 @@
-autonomous_turtlebot
+autonomous_turtlebot:map_provider
 -DCATKIN_DEVEL_PREFIX=/home/eliseo/autonomous_turtlebot/devel -DCMAKE_INSTALL_PREFIX=/home/eliseo/autonomous_turtlebot/install -G Unix Makefiles

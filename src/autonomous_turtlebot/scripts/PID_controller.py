@@ -3,7 +3,7 @@
 import rospy
 import tf
 from math import atan2, sqrt, degrees
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
 
@@ -12,15 +12,15 @@ class PIDController():
 		#initializing node, subscribers, and publishers
 		rospy.init_node('PID_Controller')
 		self.pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-		rospy.Subscriber('reference_point', Float32, self.get_goal_pose)
+		rospy.Subscriber('reference_point', Float32MultiArray, self.get_goal_pose)
  		rospy.Subscriber('slam_out_pose', PoseStamped, self.get_curr_pose)
 		# initializing PID parameters
-		self.kp_v = .0004
+		self.kp_v = .00010
 		self.kd_v = .00001
-		self.ki_v = .0004
-		self.kp_w = .000023 
-		self.kd_w = .000004
-		self.ki_w = .000023
+		self.ki_v = .00009
+		self.kp_w = .000013 
+		self.kd_w = .000002
+		self.ki_w = .000010
 		# initializing position containers
 		self.curr_pose = None
 		self.goal_pose = None
@@ -30,8 +30,8 @@ class PIDController():
 		self.e_dot = 0
 		self.e_int = 0
 		# tolerance terms
-		self.epsilon_w = 3
-		self.epsilon_v = .15
+		self.epsilon_w = 10
+		self.epsilon_v = .18
 		# velocity
 		self.vel = Twist()
 		# steering angle
@@ -56,6 +56,8 @@ class PIDController():
 		o = self.curr_pose.orientation
 		curr_angle = tf.transformations.euler_from_quaternion([o.x, o.y, o.z, o.w])
 		goal_pose = self.goal_pose
+
+		rospy.loginfo('type %s curr_angle %s', e_type, curr_angle[-1])
 
 		# if this is the first step
 		if e_type == 1:
@@ -97,7 +99,7 @@ class PIDController():
 		
 			self.PID(error, movement_type)
 			
-			rospy.loginfo("error =%s type=%s curr_angle= %s x= %s y =%s goalx %s goaly %s goaltheta %s", error, step, self.angle, self.curr_pose.position.x, self.curr_pose.position.y, self.goal_pose[0], self.goal_pose[1], self.goal_pose[2])
+			#rospy.loginfo("error =%s type=%s curr_angle= %s x= %s y =%s goalx %s goaly %s goaltheta %s", error, step, self.angle, self.curr_pose.position.x, self.curr_pose.position.y, self.goal_pose[0], self.goal_pose[1], self.goal_pose[2])
 			if abs(error) <= error_thresh:
 				self.e_int = 0
 				self.e_dot = 0
@@ -120,16 +122,26 @@ class PIDController():
 				
 	# main go to goal function
 	def go_to_goal(self):
+
 		# we wait until we have curr_pose and goal_pose before beginning
 		while self.goal_pose == None or self.curr_pose == None:
 			pass
-		rospy.loginfo('got goal point')
 
-		if self.goal_pose[3]== 1:
-			self.method1()
-		elif self.goal_pose[3] == 2:
-			self.method2()
+		previous_pose = self.goal_pose
 		
+		while self.goal_pose != None:
+			if self.goal_pose[3]== 1:
+				self.method1()
+			elif self.goal_pose[3] == 2:
+				self.method2()
+			
+			# waiting for new pose
+			while self.goal_pose == previous_pose:
+				pass 
+			
+			rospy.loginfo('got new pose %s', self.goal_pose)
+			
+						
 if __name__ == '__main__':
 	try:
 		x = PIDController()

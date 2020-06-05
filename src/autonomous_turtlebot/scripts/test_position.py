@@ -10,7 +10,7 @@ def transmit_desired_pose():
 	desired_pose = Float32MultiArray()
 
 	x = 1.4
-	y = 0.4
+	y = 0.6
 	theta = 0.0 
 	mode = 1
 	

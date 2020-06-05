@@ -21,7 +21,7 @@ class RRT():
 		self.map_resolution = None
 		self.previous_indices = []
 		self.random_range = 2.5
-		self.dist_threshold = 0.5
+		self.dist_threshold = 0.8
 		self.destination_point = None
 		self.initial_point = None
 		self.free_spaces_indices = None
