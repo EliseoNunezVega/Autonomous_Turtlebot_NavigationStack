@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import rospy
+import tf
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 from geometry_msgs.msg import PoseStamped
-from math import sqrt
+from math import sqrt, degrees
 
 class PathPlanner():
 	
@@ -14,7 +15,7 @@ class PathPlanner():
 		rospy.Subscriber('slam_out_pose', PoseStamped, self.handle_pose)
 		self.trajectory = None
 		self.curr_pose = None
-		self.treshold = 0.20
+		self.threshold = 0.09
 		self.destination = Float32MultiArray()
 		self.rate = rospy.Rate(10)
 		self.initial_length = None
@@ -60,12 +61,37 @@ class PathPlanner():
 			self.destination.data = [curr_destination[0], curr_destination[1], 0,1]
 
 			#rospy.loginfo('publishing curr point %s', curr_destination)
-			rospy.loginfo('publishing %s node', self.initial_length - len(self.trajectory))
+			rospy.loginfo('publishing node %s', self.initial_length - len(self.trajectory))
+			rospy.loginfo('data %s', self.destination.data)
 			# waiting for PID controller to get turtlebot close to point
-			while self.distance > self.treshold:
+			while self.not_arrived():
+				#rospy.loginfo('distance %s', self.distance())
 				self.pub.publish(self.destination)
 				self.rate.sleep()
+			rospy.loginfo('reached node')
+
+		rospy.loginfo('goal destination reached')
+		self.destination.data = [0,0,0,0]
 		
+		while not rospy.is_shutdown():
+			self.pub.publish(self.destination)
+			self.rate.sleep()
+
+		
+		
+	
+	def not_arrived(self):
+		# getting curr orientation
+		o = self.curr_pose.orientation
+		curr_angles = tf.transformations.euler_from_quaternion([o.x, o.y, o.z, o.w])
+		curr_yaw = curr_angles[-1]
+		# getting curr distance from destination
+		distance = self.distance()
+
+		if (distance <= self.threshold) and (round(degrees(curr_yaw), 1) < 4.5) and (round(degrees(curr_yaw), 1) > -4.5):
+			return False
+		
+		return True
 		
 	def distance(self):
 		
@@ -73,8 +99,10 @@ class PathPlanner():
 		y = self.curr_pose.position.y
 		x2 = self.destination.data[0]
 		y2 = self.destination.data[1]
-
-		return sqrt(((y2-y)**2) + ((x2-x)**2))
+		distance = sqrt(((y2-y)**2) + ((x2-x)**2))
+		rospy.loginfo('distance %s', distance)
+		
+		return distance 
 	
 
 if __name__ == '__main__':

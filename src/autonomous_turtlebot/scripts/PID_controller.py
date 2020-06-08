@@ -15,12 +15,12 @@ class PIDController():
 		rospy.Subscriber('reference_point', Float32MultiArray, self.get_goal_pose)
  		rospy.Subscriber('slam_out_pose', PoseStamped, self.get_curr_pose)
 		# initializing PID parameters
-		self.kp_v = .00010
-		self.kd_v = .00001
-		self.ki_v = .00009
-		self.kp_w = .000013 
-		self.kd_w = .000002
-		self.ki_w = .000010
+		self.kp_v = .000075
+		self.kd_v = .000001
+		self.ki_v = .000005
+		self.kp_w = .000005 
+		self.kd_w = .00000001
+		self.ki_w = .0000003
 		# initializing position containers
 		self.curr_pose = None
 		self.goal_pose = None
@@ -30,8 +30,8 @@ class PIDController():
 		self.e_dot = 0
 		self.e_int = 0
 		# tolerance terms
-		self.epsilon_w = 10
-		self.epsilon_v = .18
+		self.epsilon_w = 4.4
+		self.epsilon_v = .09
 		# velocity
 		self.vel = Twist()
 		# steering angle
@@ -46,7 +46,12 @@ class PIDController():
 		#rospy.loginfo("x: %s y: %s theta: %s", self.curr_pose.position.x, self.curr_pose.position.y, self.angle)
 		
 	def get_goal_pose(self, data):
+
 		self.goal_pose = data.data
+
+		if self.goal_pose == [0,0,0,0]:
+			self.goal_pose == None
+		
 
 	# computes both types of angular error (straight line and towards distance)
 	def get_angular_error(self, e_type):
@@ -57,14 +62,15 @@ class PIDController():
 		curr_angle = tf.transformations.euler_from_quaternion([o.x, o.y, o.z, o.w])
 		goal_pose = self.goal_pose
 
-		rospy.loginfo('type %s curr_angle %s', e_type, curr_angle[-1])
+		#rospy.loginfo('type %s curr_angle %s', e_type, curr_angle[-1])
 
 		# if this is the first step
 		if e_type == 1:
-			a_diff = atan2((goal_pose[1] - curr_crds.y),(goal_pose[0] - curr_crds.x))
+			a_diff = atan2((goal_pose[1] - curr_crds.x),(goal_pose[0] - curr_crds.y))
 			#rospy.loginfo("curr_pos %s %s, goal %s %s", curr_crds.x, curr_crds.y, goal_pose[0], goal_pose[1])
-			#rospy.loginfo("a_diff %s, curr_angle %s, 'error' %s", degrees(a_diff), degrees(curr_angle[-1]), degrees(a_diff - curr_angle[-1]))
+			#rospy.loginfo("a_diff %s, curr_angle %s", degrees(a_diff), degrees(curr_angle[-1]))
 			return degrees(a_diff - curr_angle[-1])
+			#return degrees(a_diff)
 
 		# if this is the last step		
 		if e_type == 2:
@@ -89,6 +95,7 @@ class PIDController():
 
 	def move_PID(self, movement_type, step):
 		error_thresh = 0
+
 		while True:
 			if movement_type == 'angular':
 				error = self.get_angular_error(step)
@@ -99,7 +106,7 @@ class PIDController():
 		
 			self.PID(error, movement_type)
 			
-			#rospy.loginfo("error =%s type=%s curr_angle= %s x= %s y =%s goalx %s goaly %s goaltheta %s", error, step, self.angle, self.curr_pose.position.x, self.curr_pose.position.y, self.goal_pose[0], self.goal_pose[1], self.goal_pose[2])
+			#rospy.loginfo("type %s error %s", step, error)
 			if abs(error) <= error_thresh:
 				self.e_int = 0
 				self.e_dot = 0
@@ -127,18 +134,26 @@ class PIDController():
 		while self.goal_pose == None or self.curr_pose == None:
 			pass
 
+		rospy.loginfo('started PID_controller')
+
 		previous_pose = self.goal_pose
 		
 		while self.goal_pose != None:
+
+			# temporary variable for pose
+			temp = self.goal_pose
+				
 			if self.goal_pose[3]== 1:
 				self.method1()
 			elif self.goal_pose[3] == 2:
 				self.method2()
-			
+
 			# waiting for new pose
 			while self.goal_pose == previous_pose:
 				pass 
-			
+
+
+			previous_pose = temp
 			rospy.loginfo('got new pose %s', self.goal_pose)
 			
 						

@@ -10,7 +10,7 @@ from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 class RRT():
 	def __init__(self):
 		rospy.init_node('RRT_node')
-		self.pub = rospy.Publisher('trajectory',Float32MultiArray, queue_size=10)
+		self.pub = rospy.Publisher('trajectory',Float32MultiArray, queue_size=20)
 		rospy.Subscriber('map', OccupancyGrid, self.handleMap)
 		rospy.Subscriber('slam_out_pose', PoseStamped, self.handlePose)
 		rospy.Subscriber('target_pose', Float32MultiArray, self.handleTargetPose)
@@ -21,7 +21,7 @@ class RRT():
 		self.map_resolution = None
 		self.previous_indices = []
 		self.random_range = 2.5
-		self.dist_threshold = 0.8
+		self.dist_threshold = .5
 		self.destination_point = None
 		self.initial_point = None
 		self.free_spaces_indices = None
@@ -46,32 +46,31 @@ class RRT():
 		y = ((index - self.map_width*.5) - self.map_width*(self.map_width*.5 - (x/(.05**1)))) * -(.05**1)
 		return (x,y)
 
+	def get_free_and_obstacle_indices(self):
+		# extracting only relevant unblocked points
+		grid = self.occupancy_grid
+		self.free_spaces_indices = [indx for (indx,x) in enumerate(grid) if x == 0]
+	
+		# extrcating obstacle points for later use
+		grid = self.occupancy_grid
+		self.obstacle_indices = [indx for (indx,x) in enumerate(grid) if x == 100]
+		for i in self.obstacle_indices:
+			point = self.convertIndexToXY(i)
+			self.obstacle_points.append(point)
+
 	def handleMap(self, map_data):
 		
 		# getting occupancy data
-		if self.occupancy_grid == None:
-			self.occupancy_grid = map_data.data
+		self.occupancy_grid = map_data.data
 		
 		# getting map dimensions and resolution 
 		if self.map_width == None or self.map_height == None or self.map_resolution == None:
 			self.map_width = map_data.info.width
 			self.map_width = map_data.info.height
 			self.map_resolution = map_data.info.resolution
-		
-		
 
-		# extracting only relevant unblocked points
-		if self.free_spaces_indices == None:
-			grid = self.occupancy_grid
-			self.free_spaces_indices = [indx for (indx,x) in enumerate(grid) if x == 0]
-	
-		# extrcating obstacle points for later use
-		if self.obstacle_indices == None:
-			grid = self.occupancy_grid
-			self.obstacle_indices = [indx for (indx,x) in enumerate(grid) if x == 100]
-			for i in self.obstacle_indices:
-				point = self.convertIndexToXY(i)
-				self.obstacle_points.append(point)
+		if (self.free_spaces_indices == None) or (self.obstacle_indices == None):
+			self.get_free_and_obstacle_indices()
 			
 			
 		#rospy.loginfo(isolated_map)
@@ -93,7 +92,8 @@ class RRT():
 		
 		for obstacle in self.obstacle_points:
 			distance = self.get_euclidian_distance(point, obstacle)
-			if distance < 0.5:
+			if distance < 0.4 :
+				#rospy.loginfo('distance %s', distance)
 				return True
 	
 		return False
@@ -145,8 +145,9 @@ class RRT():
 		temp_free_spaces = self.free_spaces_indices
 		new_random_point = random_point
 
+		
 
-		while distance > self.dist_threshold or self.point_hits_obstacle(random_point):
+		while (distance > self.dist_threshold) or (self.point_hits_obstacle(new_random_point)):		
 			random_index = random.choice(temp_free_spaces)
 			temp_free_spaces.remove(random_index)
 			new_random_point = self.convertIndexToXY(random_index)
@@ -259,23 +260,31 @@ class RRT():
 		# waiting for destination point and grid data
 		while (self.destination_point == None) or (self.occupancy_grid == None) or (self.map_resolution == None) or (self.free_spaces_indices == None):
 			pass
+		rospy.loginfo('got destination point')
 
 		while self.free_spaces_indices == None:
 			pass	
+		rospy.loginfo('got free spaces array')
+
+		while self.obstacle_indices == None:
+			pass
+		rospy.loginfo('got obstacles array')
 
 		while self.initial_point == None:
 			pass
 
-	
-		if len(self.free_spaces_indices) == 0:
-			rospy.loginfo('len of grid %s', len(self.occupancy_grid))
-			rospy.loginfo('free spaces indices array is empty')
-			grid = self.occupancy_grid
-			self.free_spaces_indices = [indx for (indx,x) in enumerate(grid) if x == 0]
-	
-			if len(self.free_spaces_indices) == 0:
-				return 
+		rospy.loginfo('got curr position')
 
+		while (len(self.obstacle_indices) == 0) or (len(self.free_spaces_indices)==0):
+			self.get_free_and_obstacle_indices()
+			pass
+
+	
+		rospy.loginfo('len of occupancy grid %s', len(self.occupancy_grid))
+		rospy.loginfo('len of free spaces array %s', len(self.free_spaces_indices))
+		rospy.loginfo('len of obstacles array %s', len(self.obstacle_indices))
+
+	
 		# appending our start node with initial position
 		start_node = [None, self.initial_point, []]
 	
@@ -352,7 +361,6 @@ class RRT():
 		while not rospy.is_shutdown():
 			self.pub.publish(self.trajectory)
 			self.rate.sleep()			
-			
 
 
 if __name__ == '__main__':
