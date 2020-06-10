@@ -21,7 +21,7 @@ class RRT():
 		self.map_resolution = None
 		self.previous_indices = []
 		self.random_range = 2.5
-		self.dist_threshold = .5
+		self.dist_threshold = .4
 		self.destination_point = None
 		self.initial_point = None
 		self.free_spaces_indices = None
@@ -33,8 +33,6 @@ class RRT():
 		self.trajectory = Float32MultiArray()
 		self.rate = rospy.Rate(10)
 
-		
-
 
 	def convertXYtoIndex(self, x, y):
 		indx = self.map_width* (self.map_width * .5 - ceil(x/(self.map_resolution**1))) + (self.map_width * .5 - ceil(y/(self.map_resolution**1)))
@@ -42,8 +40,14 @@ class RRT():
 
 	def convertIndexToXY(self, index):
 		#index = index * (.05 ** 3)
-		x = (int(index/self.map_width)  - self.map_width*.5) * -(.05**1)
+		w = self.map_width
+		x = (51.2 - (index/w)*self.map_resolution)
+		y = (51.2 - (index%w)*self.map_resolution)
+
+		'''
+		x = ( ceil(index/self.map_width)  - self.map_width*.5) * -(.05**1)
 		y = ((index - self.map_width*.5) - self.map_width*(self.map_width*.5 - (x/(.05**1)))) * -(.05**1)
+		'''		
 		return (x,y)
 
 	def get_free_and_obstacle_indices(self):
@@ -71,6 +75,7 @@ class RRT():
 
 		if (self.free_spaces_indices == None) or (self.obstacle_indices == None):
 			self.get_free_and_obstacle_indices()
+			rospy.loginfo('obstacles %s', self.obstacle_points)
 			
 			
 		#rospy.loginfo(isolated_map)
@@ -92,7 +97,7 @@ class RRT():
 		
 		for obstacle in self.obstacle_points:
 			distance = self.get_euclidian_distance(point, obstacle)
-			if distance < 0.4 :
+			if distance < 0.24 :
 				#rospy.loginfo('distance %s', distance)
 				return True
 	
@@ -145,8 +150,6 @@ class RRT():
 		temp_free_spaces = self.free_spaces_indices
 		new_random_point = random_point
 
-		
-
 		while (distance > self.dist_threshold) or (self.point_hits_obstacle(new_random_point)):		
 			random_index = random.choice(temp_free_spaces)
 			temp_free_spaces.remove(random_index)
@@ -155,60 +158,6 @@ class RRT():
 			
 		return new_random_point
 		
-
-	def correct_same_y(self, neighbor_point, random_point):
-		distance = float('inf')
-		sign = random_point[1] - neighbor_point[1] / abs(random_point[1] - neighbor_point[1])
-		change = 0
-
-		while distance > self.dist_threshold:
-			new_y += sign * random.uniform(0, .1)
-			distance = self.get_euclidian_distance(random_point, (neighboring_point[0], new_y))
-		return (neighbor_point[0], new_y)
-
-	def correct_same_x(self, neighbor_point, random_point):
-		
-		distance = float('inf')
-		sign = random_point[0] - neighbor_point[0] / abs(random_point[0] - neighbor_point[0])
-		change = 0
-
-		while distance > self.dist_threshold:
-			new_x += sign * random.uniform(0, .1)
-			distance = self.get_euclidian_distance(random_point, (new_x, neighbor_point[1]))
-
-		return (new_x, neighbor_point[1])	
-			
-	def correct_sloped_points(self, neighbor_point, random_point, dy, dx):
-		slope = dy/dx
-		sign_slope = slope/abs(slope)
-		sign_y = dy/abs(dy)
-		sign_x = dx/abs(dx)
-
-		#rospy.loginfo('sign x %s sign y %s', sign_x, sign_y)
-		#rospy.loginfo('random point %s', random_point)		
-		#rospy.loginfo('first distance %s', self.get_euclidian_distance(random_point, neighbor_point))
-		
-		#initially set distance to infinity
-		distance = float('inf')
-		# choosing random change factor with same sign as slope
-		change = 0
-		change_y = 0
-		change_x = 0
-
-		while distance > self.dist_threshold:
-			#rospy.loginfo('looking for new point')
-			change += random.uniform(0,.1)
-			change_y = change * sign_y
-			change_x = (change/abs(slope))*  sign_x
-			new_y = random_point[1] - change_y
-			new_x = random_point[0] - change_x
-			distance = self.get_euclidian_distance(random_point, (new_x, new_y))
-			#rospy.loginfo('new distance %s', distance)
-		
-		#rospy.loginfo('done getting point slope')
-		return (new_x, new_y)
-	
-	
 
 	def add_vertex(self, new_node):
 		if len(self.path_tree) == 0:

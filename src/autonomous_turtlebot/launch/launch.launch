@@ -7,4 +7,6 @@
 	
 	<node pkg="autonomous_turtlebot" type="test_position.py" name="test_position"/>
 	<node pkg="autonomous_turtlebot" type="RRT_node.py" name="RRT"/>
+	<node pkg="autonomous_turtlebot" type="PathPlanner_node.py" name="Planner"/>
+	<node pkg="autonomous_turtlebot" type="visualize_path.py" name="visualizer"/>
 </launch>

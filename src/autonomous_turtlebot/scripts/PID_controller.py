@@ -18,9 +18,9 @@ class PIDController():
 		self.kp_v = .000075
 		self.kd_v = .000001
 		self.ki_v = .000005
-		self.kp_w = .000005 
+		self.kp_w = .000003 
 		self.kd_w = .00000001
-		self.ki_w = .0000003
+		self.ki_w = .0000002
 		# initializing position containers
 		self.curr_pose = None
 		self.goal_pose = None
@@ -66,10 +66,11 @@ class PIDController():
 
 		# if this is the first step
 		if e_type == 1:
-			a_diff = atan2((goal_pose[1] - curr_crds.x),(goal_pose[0] - curr_crds.y))
+			a_diff = atan2((goal_pose[1] - curr_crds.y),(goal_pose[0] - curr_crds.x))
 			#rospy.loginfo("curr_pos %s %s, goal %s %s", curr_crds.x, curr_crds.y, goal_pose[0], goal_pose[1])
 			#rospy.loginfo("a_diff %s, curr_angle %s", degrees(a_diff), degrees(curr_angle[-1]))
-			return degrees(a_diff - curr_angle[-1])
+			error = degrees(a_diff - curr_angle[-1])
+			return error
 			#return degrees(a_diff)
 
 		# if this is the last step		
@@ -118,8 +119,11 @@ class PIDController():
 				break
 			
 	def method1(self):
+		rospy.loginfo('step1')
 		self.move_PID('angular', 1)
+		rospy.loginfo('step2')
 		self.move_PID('linear' , 0)
+		rospy.loginfo('step3')
 		self.move_PID('angular', 2)
 		
 			
@@ -155,6 +159,13 @@ class PIDController():
 
 			previous_pose = temp
 			rospy.loginfo('got new pose %s', self.goal_pose)
+
+		self.vel.linear.x = 0
+		self.vel.linear.y = 0
+		self.vel.angular.z = 0
+		self.pub.publish(self.vel)
+		
+		rospy.loginfo('destination reached!')
 			
 						
 if __name__ == '__main__':

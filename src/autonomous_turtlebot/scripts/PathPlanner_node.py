@@ -63,6 +63,7 @@ class PathPlanner():
 			#rospy.loginfo('publishing curr point %s', curr_destination)
 			rospy.loginfo('publishing node %s', self.initial_length - len(self.trajectory))
 			rospy.loginfo('data %s', self.destination.data)
+
 			# waiting for PID controller to get turtlebot close to point
 			while self.not_arrived():
 				#rospy.loginfo('distance %s', self.distance())
@@ -70,6 +71,7 @@ class PathPlanner():
 				self.rate.sleep()
 			rospy.loginfo('reached node')
 
+		
 		rospy.loginfo('goal destination reached')
 		self.destination.data = [0,0,0,0]
 		
@@ -100,7 +102,7 @@ class PathPlanner():
 		x2 = self.destination.data[0]
 		y2 = self.destination.data[1]
 		distance = sqrt(((y2-y)**2) + ((x2-x)**2))
-		rospy.loginfo('distance %s', distance)
+		#rospy.loginfo('distance %s', distance)
 		
 		return distance 
 	
