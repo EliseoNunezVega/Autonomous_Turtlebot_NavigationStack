@@ -31,7 +31,7 @@ class PIDController():
 		self.e_int = 0
 		# tolerance terms
 		self.epsilon_w = 4.4
-		self.epsilon_v = .09
+		self.epsilon_v = .06
 		# velocity
 		self.vel = Twist()
 		# steering angle
@@ -50,7 +50,7 @@ class PIDController():
 		self.goal_pose = data.data
 
 		if self.goal_pose == [0,0,0,0]:
-			self.goal_pose == None
+			self.goal_pose = None
 		
 
 	# computes both types of angular error (straight line and towards distance)
@@ -155,7 +155,9 @@ class PIDController():
 			# waiting for new pose
 			while self.goal_pose == previous_pose:
 				pass 
-
+			
+			if self.goal_pose == [0,0,0,0]:
+				break
 
 			previous_pose = temp
 			rospy.loginfo('got new pose %s', self.goal_pose)

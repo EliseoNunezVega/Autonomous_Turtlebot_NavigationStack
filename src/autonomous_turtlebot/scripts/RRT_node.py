@@ -22,6 +22,7 @@ class RRT():
 		self.previous_indices = []
 		self.random_range = 2.5
 		self.dist_threshold = .4
+		self.collision_threshold = .2
 		self.destination_point = None
 		self.initial_point = None
 		self.free_spaces_indices = None
@@ -41,8 +42,8 @@ class RRT():
 	def convertIndexToXY(self, index):
 		#index = index * (.05 ** 3)
 		w = self.map_width
-		x = (51.2 - (index/w)*self.map_resolution)
-		y = (51.2 - (index%w)*self.map_resolution)
+		x = (-51.2 + (index%w)*self.map_resolution)
+		y = (-51.2 + (index/w)*self.map_resolution)
 
 		'''
 		x = ( ceil(index/self.map_width)  - self.map_width*.5) * -(.05**1)
@@ -97,7 +98,7 @@ class RRT():
 		
 		for obstacle in self.obstacle_points:
 			distance = self.get_euclidian_distance(point, obstacle)
-			if distance < 0.24 :
+			if distance < self.collision_threshold:
 				#rospy.loginfo('distance %s', distance)
 				return True
 	
@@ -136,7 +137,7 @@ class RRT():
 	
 	def new_configuration(self, random_point, nearest_neighbor, distance):
 			
-		if distance > self.dist_threshold:
+		if (distance > self.dist_threshold) or (self.grid_value(random_point) == -1):
 			#rospy.loginfo('point not close enough, choosing other point')
 			new_point = self.getOtherNearestPoint(random_point, nearest_neighbor)
 			return new_point, nearest_neighbor
@@ -154,6 +155,7 @@ class RRT():
 			random_index = random.choice(temp_free_spaces)
 			temp_free_spaces.remove(random_index)
 			new_random_point = self.convertIndexToXY(random_index)
+			new_random_point = (round(new_random_point[0], 2), round(new_random_point[1], 2))
 			distance = self.get_euclidian_distance(new_random_point, nearest_point)
 			
 		return new_random_point
@@ -183,10 +185,11 @@ class RRT():
 
 
 	def grid_value(self,point):
-		half_width = (self.map_width/2)
-		scaled_y = ceil(point[1]/(self.map_resolution**2))
-		scaled_x = ceil(point[0]/(self.map_resolution**2))
-		index = half_width*2*(-scaled_x + half_width) + (-scaled_y + half_width)
+		w = self.map_width
+		h_w = (w/2)
+		scaled_y = ceil(point[1]/(self.map_resolution))
+		scaled_x = ceil(point[0]/(self.map_resolution))
+		index = w*(-scaled_x + h_w) + (-scaled_y + h_w)
 		#rospy.loginfo('index %s', index)		
 		return self.occupancy_grid[int(index)]
 
