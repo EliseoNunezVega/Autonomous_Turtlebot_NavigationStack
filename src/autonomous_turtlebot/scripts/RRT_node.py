@@ -7,6 +7,7 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
+
 class RRT():
 	def __init__(self):
 		rospy.init_node('RRT_node')
@@ -19,8 +20,6 @@ class RRT():
 		self.obstacle_indices = None
 		self.obstacle_points = []
 		self.map_resolution = None
-		self.previous_indices = []
-		self.random_range = 2.5
 		self.dist_threshold = .4
 		self.collision_threshold = .2
 		self.destination_point = None
@@ -34,35 +33,28 @@ class RRT():
 		self.trajectory = Float32MultiArray()
 		self.rate = rospy.Rate(10)
 
-
-	def convertXYtoIndex(self, x, y):
-		indx = self.map_width* (self.map_width * .5 - ceil(x/(self.map_resolution**1))) + (self.map_width * .5 - ceil(y/(self.map_resolution**1)))
-		return int(indx)
-
+	# returns the corresponding XY point to index
 	def convertIndexToXY(self, index):
 		#index = index * (.05 ** 3)
 		w = self.map_width
 		x = (-51.2 + (index%w)*self.map_resolution)
 		y = (-51.2 + (index/w)*self.map_resolution)
-
-		'''
-		x = ( ceil(index/self.map_width)  - self.map_width*.5) * -(.05**1)
-		y = ((index - self.map_width*.5) - self.map_width*(self.map_width*.5 - (x/(.05**1)))) * -(.05**1)
-		'''		
 		return (x,y)
 
+	# finds free and obstacles spaces and stores them in corresponding attribute
 	def get_free_and_obstacle_indices(self):
 		# extracting only relevant unblocked points
 		grid = self.occupancy_grid
 		self.free_spaces_indices = [indx for (indx,x) in enumerate(grid) if x == 0]
 	
-		# extrcating obstacle points for later use
+		# extracting obstacle points
 		grid = self.occupancy_grid
 		self.obstacle_indices = [indx for (indx,x) in enumerate(grid) if x == 100]
 		for i in self.obstacle_indices:
 			point = self.convertIndexToXY(i)
 			self.obstacle_points.append(point)
 
+	# this is the handle that gets relevand information from occupancy_grid 
 	def handleMap(self, map_data):
 		
 		# getting occupancy data
@@ -77,11 +69,9 @@ class RRT():
 		if (self.free_spaces_indices == None) or (self.obstacle_indices == None):
 			self.get_free_and_obstacle_indices()
 			rospy.loginfo('obstacles %s', self.obstacle_points)
-			
-			
-		#rospy.loginfo(isolated_map)
-		#rospy.loginfo(len(isolated_map))
 	
+
+	# this handle is only called to get initial position
 	def handlePose(self, pose_data):
 		if self.initial_point == None:
 			x = pose_data.pose.position.x
@@ -89,13 +79,13 @@ class RRT():
 
 			self.initial_point = (x,y)
 		
-	
+	# this handle is only called to get destination point
 	def handleTargetPose(self, target_pose):
 		if self.destination_point == None:
 			self.destination_point = (target_pose.data[0], target_pose.data[1])
 	
+	# this function returns true if point is within crashing distance to obstacle
 	def point_hits_obstacle(self, point):
-		
 		for obstacle in self.obstacle_points:
 			distance = self.get_euclidian_distance(point, obstacle)
 			if distance < self.collision_threshold:
@@ -104,21 +94,21 @@ class RRT():
 	
 		return False
 
-
+	# this function chooses a random point from the free spaces and returns it
 	def random_configuration(self):
 		random_index = random.choice(self.free_spaces_indices)
 		random_point = self.convertIndexToXY(random_index)
 		random_x = random_point[0]
 		random_y = random_point[1]
-		#rospy.loginfo('random index %s', random_index)
-		#rospy.loginfo('random point (%s, %s)', random_x, random_y)
 
 		return (random_x,random_y)
 
+	# this function returns euclidian distance
 	def get_euclidian_distance(self, point1, point2):
 		distance = sqrt((point2[1] - point1[1])**2 + (point2[0] - point1[0])**2)
 		return distance
 
+	# this function finds the nearest_vertex in the path tree to a random point and returns the index and distance
 	def nearest_vertex(self, random_point):
 		distances = []
 		nearest_distance = None
@@ -130,11 +120,12 @@ class RRT():
 			distances.append(new_distance)
 
 		nearest_node_indx = distances.index(min(distances))
-		#nearest_node = self.path_tree[nearest_node_indx]
 		nearest_distance = min(distances)
 
 		return nearest_node_indx, nearest_distance
-	
+
+	# this function checks if new_point meets is within threshold distance
+	# if it is not it looks for a new point, else it returns point
 	def new_configuration(self, random_point, nearest_neighbor, distance):
 			
 		if (distance > self.dist_threshold) or (self.grid_value(random_point) == -1):
@@ -144,6 +135,7 @@ class RRT():
 		else:
 			return random_point, nearest_neighbor
 
+	# this function gets new point, random configuration doesn't meet distance threshold 
 	def getOtherNearestPoint(self, random_point, nearest_neighbor):
 		
 		distance = float('inf')
@@ -152,6 +144,8 @@ class RRT():
 		new_random_point = random_point
 
 		while (distance > self.dist_threshold) or (self.point_hits_obstacle(new_random_point)):		
+			if len(temp_free_spaces) == 0:
+				rospy.loginfo('RRT ran into dead end, please restart it')			
 			random_index = random.choice(temp_free_spaces)
 			temp_free_spaces.remove(random_index)
 			new_random_point = self.convertIndexToXY(random_index)
@@ -161,13 +155,12 @@ class RRT():
 		return new_random_point
 		
 
+	# this function adds the new point, once it has met all conditions
 	def add_vertex(self, new_node):
 		if len(self.path_tree) == 0:
 			self.path_tree.append(new_node)
 
 		else:	
-			#rospy.loginfo('new_node %s', new_node)
-			# adding new node to tree
 			self.path_tree.append(new_node)
 			# adding index of new_node to parent node
 			self.path_tree[new_node[0]][-1].append(len(self.path_tree)-1)
@@ -175,30 +168,27 @@ class RRT():
 		# checking if new point is close enough to final destination point
 		new_point = new_node[1]
 		destination_point = self.destination_point
-		#rospy.loginfo('new point %s, destination_point %s', new_point, destination_point)
-
 		distance_to_target = self.get_euclidian_distance(new_point, destination_point) 
 		if  distance_to_target <=  self.dist_threshold:
 			self.found_path = True
 			final_node = [self.path_tree.index(new_node), self.destination_point, []]
 			self.path_tree.append(final_node)
 
-
+	# this function gets the grid value of a particular point (used as extra measure of security, to ensure we have chosen free space and not obstacle)
 	def grid_value(self,point):
 		w = self.map_width
 		h_w = (w/2)
 		scaled_y = ceil(point[1]/(self.map_resolution))
 		scaled_x = ceil(point[0]/(self.map_resolution))
 		index = w*(-scaled_x + h_w) + (-scaled_y + h_w)
-		#rospy.loginfo('index %s', index)		
 		return self.occupancy_grid[int(index)]
 
+	# this function retraces the tree and returns the final path
 	def retrace_path(self):
 		final_path = []
 		parent = self.path_tree[-1]
 
 		while parent[0] != None:
-			#rospy.loginfo('parent %s', parent)
 			final_path.append(parent[1])
 			parent = self.path_tree[parent[0]]
 		
@@ -208,8 +198,7 @@ class RRT():
 	def doRRT(self):
 
 		
-		
-		# waiting for destination point and grid data
+		# waiting for important variables to be filled before we start RRT
 		while (self.destination_point == None) or (self.occupancy_grid == None) or (self.map_resolution == None) or (self.free_spaces_indices == None):
 			pass
 		rospy.loginfo('got destination point')
@@ -248,45 +237,32 @@ class RRT():
 
 		while not self.found_path and iteration < self.max_iterations:
 
-			#rospy.loginfo('getting random point')
 
 			# getting random point configuration
 			random_point = self.random_configuration()
 
-			#rospy.loginfo('got random point')
-			
-			#rospy.loginfo('staring with nearest_vertex')
-
 			# get nearest node and distance to it
 			nearest_node, distance = self.nearest_vertex(random_point)
-			
-			#rospy.loginfo('done with nearest vertex')
-		
-			#rospy.loginfo('starting new configuration')
 	
 			# get new configuration point 
 			new_point, nearest_node = self.new_configuration(random_point, nearest_node, distance)
 
-			#rospy.loginfo('done with new configuration')
-
-			#rospy.loginfo('starting add vertex')
-
+			# creating the new node with point, parent, and empty children array
 			new_node = [nearest_node, new_point, []]
 			
 			# adding the new point to path tree
 			self.add_vertex(new_node)
-
-			#rospy.loginfo('done with add_vertex')
 			
 			iteration += 1
 			
-			#rospy.loginfo('this is the path tree so far %s', self.path_tree)
 
 		rospy.loginfo('path found and complete')
-		#rospy.loginfo('path tree %s', self.path_tree)		
+
+		# retracing path 	
 		self.final_path = self.retrace_path()
+		# reversing it so that PID can pop points from start to finish
 		self.final_path.reverse()
-		#rospy.loginfo(self.final_path)
+
 		
 		# formatting trajectory MultiArray
 		self.trajectory.layout.dim = [MultiArrayDimension(), MultiArrayDimension()]
@@ -310,6 +286,7 @@ class RRT():
 
 		rospy.loginfo('trajectory data %s', self.trajectory.data)	
 
+		# transmitting our trajectory
 		while not rospy.is_shutdown():
 			self.pub.publish(self.trajectory)
 			self.rate.sleep()			

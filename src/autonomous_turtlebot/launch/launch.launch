@@ -9,4 +9,5 @@
 	<node pkg="autonomous_turtlebot" type="RRT_node.py" name="RRT"/>
 	<node pkg="autonomous_turtlebot" type="PathPlanner_node.py" name="Planner"/>
 	<node pkg="autonomous_turtlebot" type="visualize_path.py" name="visualizer"/>
+	<node pkg="autonomous_turtlebot" type="PID_controller.py" name="PID"/>
 </launch>

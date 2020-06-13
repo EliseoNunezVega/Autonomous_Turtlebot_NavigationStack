@@ -1,4 +1,4 @@
-image: /home/eliseo/autonomous_turtlebot/src/map_provider/map4.pgm
+image: /home/eliseo/map4.pgm
 resolution: 0.050000
 origin: [-51.224998, -51.224998, 0.000000]
 negate: 0

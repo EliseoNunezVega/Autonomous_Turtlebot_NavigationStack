@@ -26,7 +26,7 @@ class PathPlanner():
 		self.destination.layout.dim[0].size = 4
 		self.destination.layout.dim[0].stride = 1
 	
-
+	# gts trajectory
 	def handle_trajectory(self, data):
 	
 		if self.trajectory == None:
@@ -53,20 +53,17 @@ class PathPlanner():
 		while self.curr_pose == None:
 			pass
 
-		#rospy.loginfo('starting path following')
 
 		# while we still have points to reach, reach them
 		while len(self.trajectory) != 0:
 			curr_destination = self.trajectory.pop()
 			self.destination.data = [curr_destination[0], curr_destination[1], 0,1]
 
-			#rospy.loginfo('publishing curr point %s', curr_destination)
 			rospy.loginfo('publishing node %s', self.initial_length - len(self.trajectory))
 			rospy.loginfo('data %s', self.destination.data)
 
 			# waiting for PID controller to get turtlebot close to point
 			while self.not_arrived():
-				#rospy.loginfo('distance %s', self.distance())
 				self.pub.publish(self.destination)
 				self.rate.sleep()
 			rospy.loginfo('reached node')
@@ -77,9 +74,7 @@ class PathPlanner():
 		
 		while not rospy.is_shutdown():
 			self.pub.publish(self.destination)
-			self.rate.sleep()
-
-		
+			self.rate.sleep()	
 		
 	
 	def not_arrived(self):

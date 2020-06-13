@@ -21,12 +21,6 @@ def get_euclidian_distance(point1, point2):
 		return distance
 
 def get_point(data):
-	'''
-	global got_point
-	global desired_pose
-	desired_pose = Float32MultiArray()
-	got_point = True
-	'''
 	distances = []
 	x = data.point.x
 	y = data.point.y
@@ -48,24 +42,12 @@ def get_point(data):
 			rospy.loginfo('obstacle threshold hit')
 
 	rospy.loginfo('done checking distances')
-			
-	'''
-	desired_pose.data.append(x)
-	desired_pose.data.append(y)
-	desired_pose.data.append(0)
-	desired_pose.data.append(1)
-	
-	'''
 
 def convertIndexToXY(index):
 
 	half_width = map_width * .5
 	x = (half_width - (index/map_width)) *res
 	y = res*(2*half_width - index - (x/res))
-	'''
-	x = ( index/map_width  - map_width*.5) * -(.05**1)
-	y = ((index - map_width*.5) - map_width*(map_width*.5 - (x/(.05**1)))) * -(.05**1)
-	'''	
 	return (x,y)
 
 
@@ -106,21 +88,7 @@ def get_clicks():
 
 	rospy.Subscriber('clicked_point', PointStamped, get_point)
 
-
-
-	#while desired_pose == None:
-	#	pass
-
-	#rospy.Subscriber('slam_out_pose', PoseStamped, get_pose)
-
-	#pub = rospy.Publisher('reference_point', Float32MultiArray, queue_size = 10)
-	#rate = rospy.Rate(10)
-	
-	#while not got_point:
-		#pass
-	
 	while not rospy.is_shutdown():
-		#pub.publish(desired_pose)
 		rospy.spin()		
 
 if __name__ == '__main__':
